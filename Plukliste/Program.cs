@@ -1,26 +1,32 @@
 ﻿//Eksempel på funktionel kodning hvor der kun bliver brugt et model lag
-namespace PickList;
+using System.Text;
+
+namespace PlukListe;
 
 class PickListProgram {
-    static readonly string export = "export";
-    static readonly string import = "import";
+    static readonly string exportPath = "export";
+    static readonly string importPath = "import";
+    static readonly string printPath = "print";
+    static readonly string templatePath = "templates";
+    static readonly System.Xml.Serialization.XmlSerializer xmlSerializer = new System.Xml.Serialization.XmlSerializer(typeof(PlukList));
     static void Main()
     {
         //Arrange
         char readKey = ' ';
 
         List<string> files;
-        var index = 0;
-        Directory.CreateDirectory(import);
+        var currentFile = 0;
+        Directory.CreateDirectory(importPath);
 
-        if (!Directory.Exists("export"))
+        if (!Directory.Exists(exportPath))
         {
-            Console.WriteLine($"Directory \"{export}\" not found");
+            Console.WriteLine($"Directory \"{exportPath}\" not found");
             Console.ReadLine();
             return;
         }
-        files = Directory.EnumerateFiles(export).ToList();
+        files = Directory.EnumerateFiles(exportPath).ToList();
 
+        PlukList? plukliste = null;
         //ACT
         while (readKey != 'Q')
         {
@@ -30,23 +36,21 @@ class PickListProgram {
             }
             else
             {
-                Console.WriteLine($"PlukList {index + 1} of {files.Count}");
-                Console.WriteLine($"\nfile: {files[index]}");
+                Console.WriteLine($"PlukList {currentFile + 1} of {files.Count}");
+                Console.WriteLine($"\nfile: {files[currentFile]}");
 
                 //read file
-                FileStream file = File.OpenRead(files[index]);
-                System.Xml.Serialization.XmlSerializer xmlSerializer =
-                    new System.Xml.Serialization.XmlSerializer(typeof(PlukList));
-                var pickList = (PlukList?)xmlSerializer.Deserialize(file);
+                FileStream file = File.OpenRead(files[currentFile]);
+                plukliste = (PlukList?)xmlSerializer.Deserialize(file);
 
-                //print pickList
-                if (pickList != null && pickList.Lines != null)
+                //print plukliste
+                if (plukliste != null && plukliste.Lines != null)
                 {
-                    Console.WriteLine("\n{0, -13}{1}", "\nName:", pickList.Name);
-                    Console.WriteLine("{0, -13}{1}", "Forsendelse:", pickList.Forsendelse);
+                    Console.WriteLine("\n{0, -13}{1}", "\nName:", plukliste.Name);
+                    Console.WriteLine("{0, -13}{1}", "Forsendelse:", plukliste.Forsendelse);
 
                     Console.WriteLine("\n{0,-7}{1,-9}{2,-20}{3}", "Amount", "Type", "ProductID.", "Title");
-                    foreach (var item in pickList.Lines)
+                    foreach (var item in plukliste.Lines)
                     {
                         Console.WriteLine("{0,-7}{1,-9}{2,-20}{3}", item.Amount, item.Type, item.ProductID, item.Title);
                     }
@@ -57,15 +61,15 @@ class PickListProgram {
             //Print options
             Console.WriteLine("\n\nOptions:");
             ColorFirstChar("Quit");
-            if (index >= 0)
+            if (currentFile >= 0)
             {
-                ColorFirstChar("Finish pick slip");
+                ColorFirstChar("Complete pick slip");
             }
-            if (index > 0)
+            if (currentFile > 0)
             {
-                ColorFirstChar("Previous pick slip");
+                ColorFirstChar("Former pick slip");
             }
-            if (index < files.Count - 1)
+            if (currentFile < files.Count - 1)
             {
                 ColorFirstChar("Next pick slip");
             }
@@ -82,33 +86,44 @@ class PickListProgram {
             Console.ForegroundColor = ConsoleColor.Red; //status in red
             switch (readKey)
             {
-                case 'F':
-                    //Move files to import directory
-                    var filewithoutPath = files[index].Substring(files[index].LastIndexOf('\\'));
-                    File.Move(files[index], string.Format(import + @"\\{0}", filewithoutPath));
-                    Console.WriteLine($"Plukseddel {files[index]} afsluttet.");
-                    files.Remove(files[index]);
-                    if (index == files.Count) index--;
+                case 'C':
+                    //Move files to importPath directory
+                    var filewithoutPath = files[currentFile].Substring(files[currentFile].LastIndexOf('\\'));
+                    File.Move(files[currentFile], string.Format(importPath + @"\\{0}", filewithoutPath));
+                    Console.WriteLine($"Plukseddel {files[currentFile]} afsluttet.");
+                    files.Remove(files[currentFile]);
+                    if (currentFile == files.Count) currentFile--;
                     break;
 
-                case 'P':
-                    if (index > 0)
+                case 'F':
+                    if (currentFile > 0)
                     {
-                        index--;
+                        currentFile--;
                     }
                     break;
 
                 case 'N':
-                    if (index < files.Count - 1)
+                    if (currentFile < files.Count - 1)
                     {
-                        index++;
+                        currentFile++;
                     }
                     break;
 
                 case 'R':
-                    files = Directory.EnumerateFiles(export).ToList();
-                    index = -1;
+                    files = Directory.EnumerateFiles(exportPath).ToList();
+                    currentFile = -1;
                     Console.WriteLine("Pick slips Refreshed");
+                    break;
+
+                case 'P':
+                    StreamReader reader = new StreamReader(templatePath);
+                    List<Item> items = plukliste.Lines.Where(x => x.Type == ItemType.Print).ToList();
+                    string pluklisteReplacement = "";
+                    foreach (Item item in items)
+                    {
+                        pluklisteReplacement += $"<li>{item.Title} - {item.Amount}</li> <br />";
+                    }
+                    PrintTemplate(reader, plukliste, pluklisteReplacement);
                     break;
             }
             Console.ForegroundColor = standardColor; //reset charColor
@@ -121,5 +136,14 @@ class PickListProgram {
         Console.WriteLine(line[0]);
         Console.ForegroundColor = ConsoleColor.Gray;
         Console.WriteLine(line[1..]);
+    }
+    public static void PrintTemplate(StreamReader reader, PlukList? plukliste, string pluklisteReplacement)
+    {
+        string template = reader.ReadToEnd();
+        template = template.Replace("[Adresse]", plukliste.Adresse);
+        template = template.Replace("[Name]", plukliste.Name);
+        template = template.Replace("[Plukliste]", pluklisteReplacement);
+
+        StreamWriter writer = new StreamWriter(printPath + ".html");
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace PickList;
+﻿namespace PlukListe;
 public class PlukList
 {
     public string? Name;
