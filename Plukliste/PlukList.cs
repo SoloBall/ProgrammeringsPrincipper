@@ -1,5 +1,5 @@
 ﻿namespace PlukListe;
-public class PlukList
+public class Pluklist
 {
     public string? Name;
     public string? Forsendelse;

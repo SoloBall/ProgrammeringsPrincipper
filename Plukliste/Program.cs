@@ -6,9 +6,9 @@ namespace PlukListe;
 class PickListProgram {
     static readonly string exportPath = "export";
     static readonly string importPath = "import";
-    static readonly string printPath = "print";
-    static readonly string templatePath = "templates";
-    static readonly System.Xml.Serialization.XmlSerializer xmlSerializer = new System.Xml.Serialization.XmlSerializer(typeof(PlukList));
+    static readonly string printPath = "print\\";
+    static readonly string templatePath = "Templates\\";
+    static readonly System.Xml.Serialization.XmlSerializer xmlSerializer = new System.Xml.Serialization.XmlSerializer(typeof(Pluklist));
     static void Main()
     {
         //Arrange
@@ -26,7 +26,7 @@ class PickListProgram {
         }
         files = Directory.EnumerateFiles(exportPath).ToList();
 
-        PlukList? plukliste = null;
+        Pluklist? plukliste = null;
         //ACT
         while (readKey != 'Q')
         {
@@ -36,12 +36,12 @@ class PickListProgram {
             }
             else
             {
-                Console.WriteLine($"PlukList {currentFile + 1} of {files.Count}");
+                Console.WriteLine($"Pluklist {currentFile + 1} of {files.Count}");
                 Console.WriteLine($"\nfile: {files[currentFile]}");
 
                 //read file
                 FileStream file = File.OpenRead(files[currentFile]);
-                plukliste = (PlukList?)xmlSerializer.Deserialize(file);
+                plukliste = (Pluklist?)xmlSerializer.Deserialize(file);
 
                 //print plukliste
                 if (plukliste != null && plukliste.Lines != null)
@@ -72,6 +72,10 @@ class PickListProgram {
             if (currentFile < files.Count - 1)
             {
                 ColorFirstChar("Next pick slip");
+            }
+            if (plukliste.Lines.Where(x => x.Type == ItemType.Print).ToList().Count > 0)
+            {
+                ColorFirstChar("Print pick slip");
             }
             ColorFirstChar("Refresh pick slips");
 
@@ -116,14 +120,32 @@ class PickListProgram {
                     break;
 
                 case 'P':
-                    StreamReader reader = new StreamReader(templatePath);
                     List<Item> items = plukliste.Lines.Where(x => x.Type == ItemType.Print).ToList();
-                    string pluklisteReplacement = "";
+                    if (items.Count == 0)
+                    {
+                        break;
+                    }
+                    string replacement = "";
+                    string templateLocation = "";
                     foreach (Item item in items)
                     {
-                        pluklisteReplacement += $"<li>{item.Title} - {item.Amount}</li> <br />";
+                        if (item.ProductID == "PRINT-OPGRADE")
+                        {
+                            replacement += $"<li> {item.Title} - {item.Amount} </li>";
+                            templateLocation = "PRINT-OPGRADE.html";
+                        }
+                        else if (item.ProductID == "PRINT-WELCOME")
+                        {
+                            replacement += $"<li> {item.Title} - {item.Amount} </li>";
+                            templateLocation = "PRINT-WELCOME.html";
+                        }
+                        else
+                        {
+                            templateLocation = "PRINT-OPSIGELSE.html";
+                        }
+                        
                     }
-                    PrintTemplate(reader, plukliste, pluklisteReplacement);
+                    PrintTemplate(plukliste, templateLocation, replacement);
                     break;
             }
             Console.ForegroundColor = standardColor; //reset charColor
@@ -133,17 +155,18 @@ class PickListProgram {
     public static void ColorFirstChar(string line, ConsoleColor charColor = ConsoleColor.Green)
     {
         Console.ForegroundColor = charColor;
-        Console.WriteLine(line[0]);
+        Console.Write(line[0]);
         Console.ForegroundColor = ConsoleColor.Gray;
         Console.WriteLine(line[1..]);
     }
-    public static void PrintTemplate(StreamReader reader, PlukList? plukliste, string pluklisteReplacement)
+    public static void PrintTemplate(Pluklist? plukliste, string templateLocation, string replacement = "")
     {
+        StreamReader reader = new StreamReader(templatePath + templateLocation);
         string template = reader.ReadToEnd();
         template = template.Replace("[Adresse]", plukliste.Adresse);
         template = template.Replace("[Name]", plukliste.Name);
-        template = template.Replace("[Plukliste]", pluklisteReplacement);
-
-        StreamWriter writer = new StreamWriter(printPath + ".html");
+        template = template.Replace("[Plukliste]", replacement);
+        File.WriteAllText(printPath + plukliste.Name + ".html", template);
+        Console.WriteLine("Pick slip printed");
     }
 }
