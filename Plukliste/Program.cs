@@ -1,7 +1,7 @@
 ﻿//Eksempel på funktionel kodning hvor der kun bliver brugt et model lag
 using System.Text;
 
-namespace PlukListe;
+namespace Plukliste;
 
 class PickListProgram {
     static readonly string exportPath = "export";
@@ -146,6 +146,10 @@ class PickListProgram {
                         
                     }
                     PrintTemplate(plukliste, templateLocation, replacement);
+                    break;
+
+                case 'X':
+                    CSVPluklistFactory.CreatePluklists(exportPath);
                     break;
             }
             Console.ForegroundColor = standardColor; //reset charColor
